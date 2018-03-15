@@ -123,8 +123,10 @@ class Db extends PDO {
             $fields[] = '`' . $key[0] . '` = :' . $key[0] . PHP_EOL;
             $args[':' . $key[0]] = $value;
         endforeach;
+        
+        $table = '`' . str_replace('`', '``', $table) . '`';
 
-        $sql .= ' `' . $table . '`' . PHP_EOL . 'SET ' . implode(',', $fields) . $where;
+        $sql .= $table . PHP_EOL . 'SET ' . implode(',', $fields) . $where;
 
         $constructedQuery = [
             'sql'  => $sql,
