@@ -1,2 +1,2 @@
 # pdo_wrapper
-PDO Wrapper inspired by https://phpdelusions.net/pdo/pdo_wrapper
+PDO Wrapper for MySQL inspired by https://phpdelusions.net/pdo/pdo_wrapper
