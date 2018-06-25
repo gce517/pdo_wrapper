@@ -1,7 +1,7 @@
 <?php /** @noinspection PhpUndefinedConstantInspection */
 
 /**
- * Inspired by https://phpdelusions.net/pdo/pdo_wrapper
+ * Inspired by https://phpdelusions.net/pdo/pdo_wrapper and https://phpdelusions.net/pdo/sql_injection_example
  */
 
 namespace Core;
@@ -47,8 +47,8 @@ class Db extends PDO {
     /**
      * Prepares and executes the query statement
      *
-     * @param      $query     (required) the sql query
-     * @param null $arguments (optional) array of parameters to bind
+     * @param string $query     (required) the sql query
+     * @param null   $arguments (optional) array of parameters to bind
      *
      * @return \PDOStatement
      */
@@ -66,31 +66,34 @@ class Db extends PDO {
     /**
      * Inserts a new record in the given table
      *
-     * @param string $table
-     * @param array  $data
+     * @param string $table   the table name
+     * @param array  $data    [column => value]
+     * @param array  $allowed array of allowed fields
      *
      * @return int last insert id
      */
-    public function insert ($table, $data) {
-        $q = $this->buildQuery($table, $data);
-        $this->run($q['sql'], $q['args']);
+    public function insert ($table, $data, $allowed) {
+        $q      = $this->buildQuery($data, $allowed);
+        $query  = 'INSERT INTO ' . $table . $q['sql'];
+        $insert = $this->run($query, $q['args']);
 
-        return $this->lastInsertId();
+        return $insert->lastInsertId();
     }
 
     /**
      * Updates a record in a given table
      *
-     * @param string $table
-     * @param array  $data
-     * @param array  $where_and
-     * @param array  $where_or
+     * @param string $table the table name
+     * @param array  $data [column => value]
+     * @param array  $allowed array of allowed fields
+     * @param array  $where [field => value]
      *
-     * @return int
+     * @return int number of rows affected
      */
-    public function update ($table, $data, $where_and, $where_or) {
-        $q      = $this->buildQuery($table, $data, 'update', $where_and, $where_or);
-        $update = $this->run($q['sql'], $q['args']);
+    public function update ($table, $data, $allowed, $where = []) {
+        $q      = $this->buildQuery($data, $allowed, $where);
+        $query  = 'UPDATE ' . $table . $q['sql'];
+        $update = $this->run($query, $q['args']);
 
         return $update->rowCount();
     }
@@ -98,55 +101,34 @@ class Db extends PDO {
     /**
      * Builds a query to insert or update data.
      *
-     * @param string $table     (required) the name of the table
-     * @param array  $data      (required) array of columns requested
-     * @param string $action    (required) 'insert' (default) or 'update'
-     * @param array  $where_and (optional) column = value as a string (['{field} {operand}' => ':parameter']). required
-     *                          when using $where_or
-     * @param array  $where_or  (optional) column = value as a string
+     * @param array  $data    (required) [column => value]
+     * @param array  $allowed (required) array of allowed fields
+     * @param array  $where   (optional) [column => value]
      *
      * @return array of sql and arguments
      */
-    private function buildQuery ($table, $data, $action = 'insert', $where_and = null, $where_or = null) {
-        $fields = [];
-        $args   = [];
-        $sql    = ($action == 'insert' ? 'INSERT INTO' : 'UPDATE');
-        $where  = '';
+    private function buildQuery ($data, $allowed, $where = []) {
+        $args      = [];
+        $where_out = '';
+        $setStr    = '';
 
-        if ($where_and != null) :
+        if (!empty($where)) :
             $counter = 0;
-            foreach ($where_and as $key => $value) :
-                // $key includes key and operand; let's separate them
-                $split   = explode(' ', $key);
-                $key     = $split[0];
-                $operand = $split[1];
-                $where  .= ($counter == 0 ? 'WHERE' : 'AND') . ' `' . $key . '` ' . $operand . ' :' . $key . '_a' .
-                    PHP_EOL;
-                $args[':' . $key . '_a'] = $value;
+            foreach ($where as $key => $value) :
+                $where_out .= ($counter ? 'AND' : 'WHERE');
+                $where_out .= ' `' . $key . '` = :' . $key . PHP_EOL;
                 $counter++;
             endforeach;
-            if ($where_or != null) :
-                $counter = 0;
-                foreach ($where_or as $key => $value) :
-                    $split   = explode(' ', $key);
-                    $key     = $split[0];
-                    $operand = $split[1];
-                    $where   .= 'OR `' . $key . '` ' . $operand . ' :' . $key . '_o' . PHP_EOL;
-                    $args[':' . $key . '_o'] = $value;
-                    $counter++;
-                endforeach;
-            endif;
         endif;
 
-        foreach ($data as $key => $value) :
-            $key                 = explode(' ', $key);
-            $fields[]            = '`' . $key[0] . '` = :' . $key[0] . PHP_EOL;
-            $args[':' . $key[0]] = $value;
+        foreach ($allowed as $key) :
+            if (isset($data[$key])) :
+                $setStr .= "`" . str_replace("`", "``", $key) . "` = :" . $key . PHP_EOL . ",";
+                $args[':' . $key] = $data[$key];
+            endif;
         endforeach;
 
-        $table = '`' . str_replace('`', '``', $table) . '`';
-
-        $sql .= $table . PHP_EOL . 'SET ' . implode(',', $fields) . $where;
+        $sql = PHP_EOL . 'SET ' . $setStr . $where_out;
 
         $constructedQuery = [
             'sql'  => $sql,
