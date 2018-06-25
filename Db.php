@@ -78,7 +78,7 @@ class Db extends PDO {
         $query  = 'INSERT INTO ' . $table . $q['sql'];
         $insert = $this->run($query, $q['args']);
 
-        return $insert->lastInsertId();
+        return $insert->rowCount();
     }
 
     /**
