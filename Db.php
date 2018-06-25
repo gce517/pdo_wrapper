@@ -124,14 +124,12 @@ class Db extends PDO {
             endforeach;
         endif;
 
-        if (!empty($allowed)) :
-            foreach ($allowed as $key) :
-                if (isset($data[$key])) :
-                    $setStr .= '`' . str_replace('`', '``', $key) . '` = :' . $key . PHP_EOL . ',';
-                    $args[':' . $key] = $data[$key];
-                endif;
-            endforeach;
-        endif;
+        foreach ($allowed as $key) :
+            if (isset($data[$key])) :
+                $setStr .= '`' . str_replace('`', '``', $key) . '` = :' . $key . PHP_EOL . ',';
+                $args[':' . $key] = $data[$key];
+            endif;
+        endforeach;
 
         $sql = PHP_EOL . 'SET ' . rtrim($setStr, ',') . $where_out;
 
