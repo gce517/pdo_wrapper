@@ -66,13 +66,14 @@ class Db extends PDO {
     /**
      * Inserts a new record in the given table
      *
-     * @param string $table   the table name
-     * @param array  $data    [column => value]
+     * @param string $table   The table into where the data will be inserted
+     * @param array  $data    The data to insert [column => value]
      * @param array  $allowed array of allowed fields
      *
      * @return int last insert id
      */
-    public function insert ($table, $data, $allowed) {
+    public function insert ($table, $data, $allowed = []) {
+        $allowed = $this->getAllowedFields($data, $allowed);
         $q      = $this->buildQuery($data, $allowed);
         $query  = 'INSERT INTO ' . $table . $q['sql'];
         $insert = $this->run($query, $q['args']);
@@ -83,14 +84,15 @@ class Db extends PDO {
     /**
      * Updates a record in a given table
      *
-     * @param string $table the table name
-     * @param array  $data [column => value]
+     * @param string $table   The table into where the data will be updated
+     * @param array  $data    The data to insert [column => value]
+     * @param array  $where   [field => value]
      * @param array  $allowed array of allowed fields
-     * @param array  $where [field => value]
      *
      * @return int number of rows affected
      */
-    public function update ($table, $data, $allowed, $where = []) {
+    public function update ($table, $data, $where = [], $allowed) {
+        $allowed = $this->getAllowedFields($data, $allowed);
         $q      = $this->buildQuery($data, $allowed, $where);
         $query  = 'UPDATE ' . $table . $q['sql'];
         $update = $this->run($query, $q['args']);
@@ -102,12 +104,12 @@ class Db extends PDO {
      * Builds a query to insert or update data.
      *
      * @param array  $data    (required) [column => value]
-     * @param array  $allowed (required) array of allowed fields
+     * @param array  $allowed (optional) array of allowed fields
      * @param array  $where   (optional) [column => value]
      *
      * @return array of sql and arguments
      */
-    private function buildQuery ($data, $allowed, $where = []) {
+    private function buildQuery ($data, $allowed = [], $where = []) {
         $args      = [];
         $where_out = '';
         $setStr    = '';
@@ -117,18 +119,21 @@ class Db extends PDO {
             foreach ($where as $key => $value) :
                 $where_out .= ($counter ? 'AND' : 'WHERE');
                 $where_out .= ' `' . $key . '` = :' . $key . PHP_EOL;
+                $args[':' . $key] = $value;
                 $counter++;
             endforeach;
         endif;
 
-        foreach ($allowed as $key) :
-            if (isset($data[$key])) :
-                $setStr .= "`" . str_replace("`", "``", $key) . "` = :" . $key . PHP_EOL . ",";
-                $args[':' . $key] = $data[$key];
-            endif;
-        endforeach;
+        if (!empty($allowed)) :
+            foreach ($allowed as $key) :
+                if (isset($data[$key])) :
+                    $setStr .= '`' . str_replace('`', '``', $key) . '` = :' . $key . PHP_EOL . ',';
+                    $args[':' . $key] = $data[$key];
+                endif;
+            endforeach;
+        endif;
 
-        $sql = PHP_EOL . 'SET ' . $setStr . $where_out;
+        $sql = PHP_EOL . 'SET ' . rtrim($setStr, ',') . $where_out;
 
         $constructedQuery = [
             'sql'  => $sql,
@@ -136,5 +141,23 @@ class Db extends PDO {
         ];
 
         return $constructedQuery;
+    }
+
+    /**
+     * Generates an array with the allowed fields
+     *
+     * @param $data
+     * @param $allowed
+     *
+     * @return array
+     */
+    private function getAllowedFields ($data, $allowed) {
+        if (empty($allowed)) :
+            foreach ($data as $key => $value) :
+                $allowed[] = $key;
+            endforeach;
+        endif;
+
+        return $allowed;
     }
 }
