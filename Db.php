@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 namespace Core; // Change to your desired namespace
 
-use \PDO;
+use PDO;
 
 // This is not the correct place to put these.
 // You should have a separate config class/file.
