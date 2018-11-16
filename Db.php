@@ -15,7 +15,7 @@ use PDO;
 \define('DB_PASS', '');
 
 /**
- * Class Model
+ * Class Db
  *
  * Adapted from https://phpdelusions.net/pdo/pdo_wrapper and https://phpdelusions.net/pdo/sql_injection_example
  *
